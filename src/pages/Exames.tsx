@@ -18,9 +18,9 @@ import {
   Activity,
 } from 'lucide-react'
 
-// Responsive SVG Line Chart Component
+// Responsive SVG Line Chart Component with Interactive Tooltips & Axis
 interface SvgChartProps {
-  data: Array<{ date: string; value: number }>
+  data: Array<{ date: string; value: number; fullDate?: string }>
   color: string
   unit: string
   title: string
@@ -28,29 +28,45 @@ interface SvgChartProps {
 }
 
 const SvgLineChart: React.FC<SvgChartProps> = ({ data, color, unit, title, minZero = false }) => {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
+
   if (data.length === 0) {
     return (
-      <div className="h-44 flex items-center justify-center text-xs text-[#5C7472] border border-dashed border-[#E3EFED] rounded-2xl">
+      <div className="h-44 flex items-center justify-center text-xs text-[#5C7472] border border-dashed border-[#E3EFED] rounded-2xl bg-[#F6FBFA]">
         Sem dados para {title}
       </div>
     )
   }
 
   const values = data.map((d) => d.value)
-  const minVal = minZero ? 0 : Math.min(...values) * 0.9
-  const maxVal = Math.max(...values) * 1.1 || 1
+  const rawMin = Math.min(...values)
+  const rawMax = Math.max(...values)
+
+  // Tratamento gracioso para 1 ponto ou dados idênticos
+  const minVal = minZero
+    ? 0
+    : rawMin === rawMax
+      ? Math.max(0, rawMin - 1)
+      : Math.max(0, Number((rawMin * 0.9).toFixed(2)))
+
+  const maxVal = rawMin === rawMax ? rawMax + 1 : Number((rawMax * 1.1).toFixed(2))
+
   const range = maxVal - minVal || 1
 
   const width = 500
   const height = 180
-  const padding = { top: 20, right: 20, bottom: 30, left: 40 }
+  const padding = { top: 22, right: 25, bottom: 32, left: 45 }
 
   const chartW = width - padding.left - padding.right
   const chartH = height - padding.top - padding.bottom
 
+  const getY = (val: number) => padding.top + chartH - ((val - minVal) / range) * chartH
+  const getX = (idx: number) =>
+    padding.left + (data.length === 1 ? chartW / 2 : (idx / (data.length - 1)) * chartW)
+
   const points = data.map((d, i) => {
-    const x = padding.left + (i / (data.length - 1 || 1)) * chartW
-    const y = padding.top + chartH - ((d.value - minVal) / range) * chartH
+    const x = getX(i)
+    const y = getY(d.value)
     return { x, y, ...d }
   })
 
@@ -58,59 +74,73 @@ const SvgLineChart: React.FC<SvgChartProps> = ({ data, color, unit, title, minZe
     return i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`
   }, '')
 
-  const areaD = `${pathD} L ${points[points.length - 1].x} ${
-    padding.top + chartH
-  } L ${points[0].x} ${padding.top + chartH} Z`
+  const areaD =
+    points.length > 1
+      ? `${pathD} L ${points[points.length - 1].x} ${padding.top + chartH} L ${
+          points[0].x
+        } ${padding.top + chartH} Z`
+      : ''
+
+  // Y-axis values for grid
+  const yMid = Number(((minVal + maxVal) / 2).toFixed(1))
+  const yTicks = [
+    { val: minVal, y: getY(minVal) },
+    { val: yMid, y: getY(yMid) },
+    { val: maxVal, y: getY(maxVal) },
+  ]
+
+  const activePoint = hoveredIdx !== null && points[hoveredIdx] ? points[hoveredIdx] : null
+
+  // Clean ID for SVG gradient
+  const gradId = `grad-${title.replace(/[^a-zA-Z0-9]/g, '')}`
 
   return (
-    <div className="w-full">
-      <div className="flex items-center justify-between mb-2">
+    <div className="w-full space-y-1.5">
+      <div className="flex items-center justify-between">
         <span className="text-xs font-bold text-[#123332]">{title}</span>
         <span className="text-xs font-mono font-bold text-[#5C7472]">
-          Último: {values[values.length - 1]} {unit}
+          Último: <strong className="text-[#123332]">{values[values.length - 1]}</strong> {unit}
         </span>
       </div>
 
-      <div className="relative w-full aspect-[2.6/1] bg-[#F6FBFA] rounded-2xl border border-[#E3EFED] p-2 overflow-hidden">
+      <div className="relative w-full aspect-[2.6/1] bg-[#F6FBFA] rounded-2xl border border-[#E3EFED] p-2 overflow-hidden select-none">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="w-full h-full overflow-visible"
           preserveAspectRatio="none"
         >
           <defs>
-            <linearGradient id={`grad-${title}`} x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={color} stopOpacity="0.25" />
               <stop offset="100%" stopColor={color} stopOpacity="0.0" />
             </linearGradient>
           </defs>
 
-          {/* Grid lines */}
-          <line
-            x1={padding.left}
-            y1={padding.top}
-            x2={width - padding.right}
-            y2={padding.top}
-            stroke="#E3EFED"
-            strokeDasharray="3 3"
-          />
-          <line
-            x1={padding.left}
-            y1={padding.top + chartH / 2}
-            x2={width - padding.right}
-            y2={padding.top + chartH / 2}
-            stroke="#E3EFED"
-            strokeDasharray="3 3"
-          />
-          <line
-            x1={padding.left}
-            y1={padding.top + chartH}
-            x2={width - padding.right}
-            y2={padding.top + chartH}
-            stroke="#E3EFED"
-          />
+          {/* Grid lines and Y-axis text */}
+          {yTicks.map((tick, i) => (
+            <g key={i}>
+              <line
+                x1={padding.left}
+                y1={tick.y}
+                x2={width - padding.right}
+                y2={tick.y}
+                stroke="#E3EFED"
+                strokeDasharray="3 3"
+              />
+              <text
+                x={padding.left - 6}
+                y={tick.y + 3.5}
+                textAnchor="end"
+                fontSize="8.5"
+                fill="#5C7472"
+              >
+                {tick.val}
+              </text>
+            </g>
+          ))}
 
           {/* Area under curve */}
-          <path d={areaD} fill={`url(#grad-${title})`} />
+          {areaD && <path d={areaD} fill={`url(#${gradId})`} />}
 
           {/* Line */}
           <path
@@ -122,22 +152,85 @@ const SvgLineChart: React.FC<SvgChartProps> = ({ data, color, unit, title, minZe
             strokeLinejoin="round"
           />
 
-          {/* Points */}
-          {points.map((p, idx) => (
-            <g key={idx} className="group">
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r="4.5"
-                fill="#FFFFFF"
-                stroke={color}
-                strokeWidth="2.5"
-                className="transition-all hover:r-6 cursor-pointer"
-              />
-              <title>{`${p.date}: ${p.value} ${unit}`}</title>
-            </g>
-          ))}
+          {/* Hover indicator vertical line */}
+          {activePoint && (
+            <line
+              x1={activePoint.x}
+              y1={padding.top}
+              x2={activePoint.x}
+              y2={padding.top + chartH}
+              stroke="#123332"
+              strokeWidth="1"
+              strokeDasharray="2 2"
+              opacity="0.3"
+            />
+          )}
+
+          {/* Points & Interactive Zones */}
+          {points.map((p, idx) => {
+            const isHovered = hoveredIdx === idx
+            return (
+              <g
+                key={idx}
+                className="cursor-pointer"
+                onMouseEnter={() => setHoveredIdx(idx)}
+                onMouseLeave={() => setHoveredIdx(null)}
+                onClick={() => setHoveredIdx(isHovered ? null : idx)}
+              >
+                {/* Touch/click enlarged hit area */}
+                <rect x={p.x - 14} y={padding.top} width="28" height={chartH} fill="transparent" />
+
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r={isHovered ? '6.5' : '4.5'}
+                  fill="#FFFFFF"
+                  stroke={color}
+                  strokeWidth="2.5"
+                  className="transition-all"
+                />
+
+                {/* X-axis date label */}
+                {(points.length <= 8 || idx % 2 === 0 || idx === points.length - 1) && (
+                  <text
+                    x={p.x}
+                    y={padding.top + chartH + 16}
+                    textAnchor="middle"
+                    fontSize="9"
+                    fontWeight={isHovered ? 'bold' : 'normal'}
+                    fill={isHovered ? '#123332' : '#5C7472'}
+                  >
+                    {p.date}
+                  </text>
+                )}
+              </g>
+            )
+          })}
         </svg>
+
+        {/* Floating Tooltip Box */}
+        {activePoint && (
+          <div
+            className="absolute z-20 pointer-events-none bg-[#123332] text-white p-2 rounded-xl text-xs shadow-lg space-y-0.5 transform -translate-x-1/2 -translate-y-full transition-all duration-150"
+            style={{
+              left: `${(activePoint.x / width) * 100}%`,
+              top: `${Math.min(65, Math.max(22, activePoint.y - 12))}px`,
+            }}
+          >
+            <div className="font-bold text-[10px] text-[#A6E1DE] border-b border-white/20 pb-0.5">
+              {activePoint.fullDate || activePoint.date}
+            </div>
+            <div className="text-xs font-bold font-mono">
+              {activePoint.value}{' '}
+              <span className="text-[10px] font-normal text-white/80">{unit}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between text-[10px] text-[#5C7472] px-1">
+        <span>Toque no ponto para ver valor e data</span>
+        <span>{data.length} exame(s)</span>
       </div>
     </div>
   )
@@ -255,73 +348,103 @@ const Exames: React.FC = () => {
   const creatinineSeries = useMemo(() => {
     return sortedLabs
       .filter((l) => l.creatinine !== undefined && l.creatinine !== null)
-      .map((l) => ({
-        date: new Date(l.exam_date.split('T')[0]).toLocaleDateString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-        }),
-        value: Number(l.creatinine),
-      }))
+      .map((l) => {
+        const d = new Date(l.exam_date.split('T')[0] + 'T00:00:00')
+        return {
+          date: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+          fullDate: d.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          }),
+          value: Number(l.creatinine),
+        }
+      })
   }, [sortedLabs])
 
   const ureaSeries = useMemo(() => {
     return sortedLabs
       .filter((l) => l.urea !== undefined && l.urea !== null)
-      .map((l) => ({
-        date: new Date(l.exam_date.split('T')[0]).toLocaleDateString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-        }),
-        value: Number(l.urea),
-      }))
+      .map((l) => {
+        const d = new Date(l.exam_date.split('T')[0] + 'T00:00:00')
+        return {
+          date: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+          fullDate: d.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          }),
+          value: Number(l.urea),
+        }
+      })
   }, [sortedLabs])
 
   const potSeries = useMemo(() => {
     return sortedLabs
       .filter((l) => l.potassium !== undefined && l.potassium !== null)
-      .map((l) => ({
-        date: new Date(l.exam_date.split('T')[0]).toLocaleDateString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-        }),
-        value: Number(l.potassium),
-      }))
+      .map((l) => {
+        const d = new Date(l.exam_date.split('T')[0] + 'T00:00:00')
+        return {
+          date: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+          fullDate: d.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          }),
+          value: Number(l.potassium),
+        }
+      })
   }, [sortedLabs])
 
   const sodSeries = useMemo(() => {
     return sortedLabs
       .filter((l) => l.sodium !== undefined && l.sodium !== null)
-      .map((l) => ({
-        date: new Date(l.exam_date.split('T')[0]).toLocaleDateString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-        }),
-        value: Number(l.sodium),
-      }))
+      .map((l) => {
+        const d = new Date(l.exam_date.split('T')[0] + 'T00:00:00')
+        return {
+          date: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+          fullDate: d.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          }),
+          value: Number(l.sodium),
+        }
+      })
   }, [sortedLabs])
 
   const hbSeries = useMemo(() => {
     return sortedLabs
       .filter((l) => l.hemoglobin !== undefined && l.hemoglobin !== null)
-      .map((l) => ({
-        date: new Date(l.exam_date.split('T')[0]).toLocaleDateString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-        }),
-        value: Number(l.hemoglobin),
-      }))
+      .map((l) => {
+        const d = new Date(l.exam_date.split('T')[0] + 'T00:00:00')
+        return {
+          date: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+          fullDate: d.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          }),
+          value: Number(l.hemoglobin),
+        }
+      })
   }, [sortedLabs])
 
   const gfrSeries = useMemo(() => {
     return sortedLabs
       .filter((l) => l.gfr !== undefined && l.gfr !== null)
-      .map((l) => ({
-        date: new Date(l.exam_date.split('T')[0]).toLocaleDateString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-        }),
-        value: Number(l.gfr),
-      }))
+      .map((l) => {
+        const d = new Date(l.exam_date.split('T')[0] + 'T00:00:00')
+        return {
+          date: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+          fullDate: d.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          }),
+          value: Number(l.gfr),
+        }
+      })
   }, [sortedLabs])
 
   return (

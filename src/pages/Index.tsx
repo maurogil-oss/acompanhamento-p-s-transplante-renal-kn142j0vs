@@ -13,6 +13,7 @@ import type {
   LabRecord,
 } from '@/types/database'
 import { MeasurementModal } from '@/components/MeasurementModal'
+import { TrendCharts } from '@/components/TrendCharts'
 import {
   Clock,
   CheckCircle2,
@@ -55,6 +56,7 @@ const Index: React.FC = () => {
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([])
   const [labs, setLabs] = useState<LabRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [trendPeriod, setTrendPeriod] = useState<14 | 28>(14)
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false)
@@ -65,7 +67,7 @@ const Index: React.FC = () => {
     try {
       const [todayM, histM, meds, logs, appts, labList] = await Promise.all([
         measurementsService.getByDate(todayStr),
-        measurementsService.getRecentDays(14),
+        measurementsService.getRecentDays(28),
         medicationsService.getActiveMedications(),
         medicationsService.getLogsByDate(todayStr),
         appointmentsService.getUpcoming(),
@@ -92,7 +94,7 @@ const Index: React.FC = () => {
   // Realtime Subscriptions
   useRealtime<MeasurementRecord>('measurements', () => {
     measurementsService.getByDate(todayStr).then(setMeasurements)
-    measurementsService.getRecentDays(14).then(setHistoryMeasurements)
+    measurementsService.getRecentDays(28).then(setHistoryMeasurements)
   })
 
   useRealtime<MedicationLogRecord>('medication_logs', () => {
@@ -455,55 +457,16 @@ const Index: React.FC = () => {
             </div>
           </section>
 
-          {/* Weight Card */}
+          {/* Histórico Visual de Tendências Clínicas (PA + Peso com Metas) */}
           <section className="bg-white rounded-3xl p-5 sm:p-6 border border-[#E3EFED] shadow-card">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <div className="text-xs uppercase font-extrabold tracking-wider text-[#5C7472]">
-                  Peso de hoje (jejum matinal)
-                </div>
-                <div className="flex items-baseline gap-3 mt-1">
-                  <span className="text-3xl sm:text-4xl font-extrabold font-mono text-[#123332]">
-                    {morningWeightRecord.toFixed(1)}{' '}
-                    <span className="text-lg font-normal text-[#5C7472]">kg</span>
-                  </span>
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                      Math.abs(weightDelta) <= 2
-                        ? 'bg-[#EAF7EE] text-[#2E9E6B]'
-                        : 'bg-[#FFFBEB] text-[#D97706]'
-                    }`}
-                  >
-                    {weightDelta > 0 ? `+${weightDelta}` : weightDelta} kg vs alta ({baselineWeight}{' '}
-                    kg)
-                  </span>
-                </div>
-                <p className="text-xs text-[#5C7472] mt-1">
-                  {Math.abs(weightDelta) <= 2
-                    ? 'Peso estável. Sem sinais de retenção hídrica importante.'
-                    : 'Atenção: variação superior a 2 kg em relação à alta hospitalar.'}
-                </p>
-              </div>
-
-              {/* Sparkline Visual */}
-              <div className="w-full sm:w-48 h-12 flex items-end gap-1.5 pt-2">
-                {weightSparkline.map((val, idx) => {
-                  const min = Math.min(...weightSparkline)
-                  const max = Math.max(...weightSparkline)
-                  const range = max - min || 1
-                  const heightPct = Math.max(20, Math.min(100, ((val - min) / range) * 80 + 20))
-
-                  return (
-                    <div
-                      key={idx}
-                      className="flex-1 bg-[#D9F2F1] hover:bg-[#0E7C7B] rounded-t-sm transition-all group relative"
-                      style={{ height: `${heightPct}%` }}
-                      title={`${val} kg`}
-                    />
-                  )
-                })}
-              </div>
-            </div>
+            <TrendCharts
+              measurements={historyMeasurements}
+              baselineWeightKg={settings?.baseline_weight_kg || 94}
+              systolicTarget={140}
+              diastolicTarget={90}
+              periodDays={trendPeriod}
+              onPeriodChange={setTrendPeriod}
+            />
           </section>
 
           {/* Water Intake Card */}

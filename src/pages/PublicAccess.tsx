@@ -15,6 +15,7 @@ import type {
   SettingsRecord,
   MedicationPhase,
 } from '@/types/database'
+import { TrendCharts } from '@/components/TrendCharts'
 import {
   HeartPulse,
   Clock,
@@ -66,7 +67,7 @@ export const PublicAccess: React.FC = () => {
         // Load clinical read-only records
         const [sett, meas, meds, appts, labList] = await Promise.all([
           settingsService.getSettings(),
-          measurementsService.getRecentDays(7),
+          measurementsService.getRecentDays(28),
           medicationsService.getActiveMedications(),
           appointmentsService.getUpcoming(),
           labsService.getAll(),
@@ -252,12 +253,24 @@ export const PublicAccess: React.FC = () => {
           </div>
         </section>
 
-        {/* Section 2: Medições Clínicas Recentes */}
+        {/* Section 2: Tendências Clínicas (PA e Peso) */}
+        <section className="bg-white rounded-3xl p-5 sm:p-6 border border-[#E3EFED] shadow-card">
+          <TrendCharts
+            measurements={recentMeasurements}
+            baselineWeightKg={settings?.baseline_weight_kg || 94}
+            systolicTarget={140}
+            diastolicTarget={90}
+            periodDays={14}
+            readOnly={true}
+          />
+        </section>
+
+        {/* Section 3: Medições Clínicas Recentes em Tabela */}
         <section className="bg-white rounded-3xl p-5 sm:p-6 border border-[#E3EFED] shadow-card space-y-4">
           <div>
             <h2 className="text-base font-bold text-[#123332] flex items-center gap-2">
               <Activity className="w-4 h-4 text-[#0E7C7B]" />
-              Medições Clínicas Recentes
+              Medições Clínicas Detalhadas
             </h2>
             <p className="text-xs text-[#5C7472]">
               Aferições diárias em 4 horários (PA, Pulso, Glicemia, Temperatura, Peso e Diurese)

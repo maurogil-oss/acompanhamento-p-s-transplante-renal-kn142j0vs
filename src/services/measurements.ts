@@ -16,17 +16,36 @@ export const measurementsService = {
     }
   },
 
-  async getRecentDays(days: number = 14): Promise<MeasurementRecord[]> {
+  async getRecentDays(days: number = 28): Promise<MeasurementRecord[]> {
     try {
-      const d = new Date()
-      d.setDate(d.getDate() - days)
-      const minDate = d.toISOString().split('T')[0]
-      return await pb.collection('measurements').getFullList<MeasurementRecord>({
-        filter: `date >= '${minDate}'`,
+      // Para apoiar acompanhamento mesmo com datas simuladas ou reais futuras,
+      // buscamos a lista ordenada por data decrescente e limitamos pelo número de registros
+      // ou data mínima calculada a partir do registro mais recente
+      const all = await pb.collection('measurements').getFullList<MeasurementRecord>({
         sort: '-date,slot',
       })
+      if (all.length === 0) return []
+
+      const newestDateStr = all[0].date.split('T')[0]
+      const newestDate = new Date(newestDateStr + 'T00:00:00')
+      const cutoff = new Date(newestDate)
+      cutoff.setDate(cutoff.getDate() - days)
+      const cutoffStr = cutoff.toISOString().split('T')[0]
+
+      return all.filter((m) => m.date.split('T')[0] >= cutoffStr)
     } catch (err) {
       console.error('Error fetching recent measurements:', err)
+      return []
+    }
+  },
+
+  async getAll(): Promise<MeasurementRecord[]> {
+    try {
+      return await pb.collection('measurements').getFullList<MeasurementRecord>({
+        sort: 'date,slot',
+      })
+    } catch (err) {
+      console.error('Error fetching all measurements:', err)
       return []
     }
   },
