@@ -31,6 +31,7 @@ import {
   UtensilsCrossed,
   HeartPulse,
 } from 'lucide-react'
+import { evaluateMeasurementSlot, evaluateUrineDrop } from '@/lib/clinicalTargets'
 import { Link } from 'react-router-dom'
 import { toast } from '@/hooks/use-toast'
 import { useRealtime } from '@/hooks/use-realtime'
@@ -224,12 +225,30 @@ const Index: React.FC = () => {
     return measurements.reduce((sum, m) => sum + (m.urine_ml || 0), 0)
   }, [measurements])
 
+  // Diurese de ontem calculada a partir do histórico para comparar queda de > 30%
+  const totalUrineYesterday = useMemo(() => {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yStr = yesterday.toISOString().split('T')[0]
+    return historyMeasurements
+      .filter((m) => m.date.split('T')[0] === yStr)
+      .reduce((sum, m) => sum + (m.urine_ml || 0), 0)
+  }, [historyMeasurements])
+
+  const urineEvaluation = useMemo(() => {
+    return evaluateUrineDrop(totalUrineToday, totalUrineYesterday)
+  }, [totalUrineToday, totalUrineYesterday])
+
   const lastTemperature = useMemo(() => {
     // Find last recorded temp from slots in reverse order
     const reversed = [...measurements].sort((a, b) => b.slot.localeCompare(a.slot))
     const withTemp = reversed.find((m) => m.temperature && m.temperature > 0)
     return withTemp?.temperature || 36.5
   }, [measurements])
+
+  const tempEvaluation = useMemo(() => {
+    return evaluateMeasurementSlot({ temperature: lastTemperature })
+  }, [lastTemperature])
 
   // Helper to compute dose of the day for a medication (taking phases into account)
   const getDoseForToday = (med: MedicationRecord): string => {
@@ -402,22 +421,42 @@ const Index: React.FC = () => {
                 const rec = getSlotRecord(slot)
                 const filled = isSlotFilled(rec)
                 const isCurrent = currentSlotTime === slot
+                const slotEvaluation = evaluateMeasurementSlot(rec)
+
+                // Cores de borda e fundo se estiver fora da meta
+                let cardStyle = filled
+                  ? 'bg-white border-2 border-[#0E7C7B] shadow-sm hover:shadow-md'
+                  : 'bg-[#F6FBFA] border-2 border-dashed border-[#E3EFED] hover:border-[#0E7C7B]/50 hover:bg-white'
+
+                if (filled && slotEvaluation.isOffTarget) {
+                  if (slotEvaluation.level === 'alert') {
+                    cardStyle = 'bg-[#FFF5F5] border-2 border-[#D64545] shadow-sm hover:shadow-md'
+                  } else {
+                    cardStyle = 'bg-[#FFFBEB] border-2 border-[#D97706] shadow-sm hover:shadow-md'
+                  }
+                }
 
                 return (
                   <button
                     key={slot}
                     type="button"
                     onClick={() => handleOpenSlot(slot)}
-                    className={`relative p-3.5 sm:p-4 rounded-2xl text-left transition-all duration-200 cursor-pointer group flex flex-col justify-between min-h-[120px] ${
-                      filled
-                        ? 'bg-white border-2 border-[#0E7C7B] shadow-sm hover:shadow-md'
-                        : 'bg-[#F6FBFA] border-2 border-dashed border-[#E3EFED] hover:border-[#0E7C7B]/50 hover:bg-white'
-                    } ${isCurrent && !filled ? 'ring-2 ring-[#0E7C7B]/40 ring-offset-2' : ''}`}
+                    className={`relative p-3.5 sm:p-4 rounded-2xl text-left transition-all duration-200 cursor-pointer group flex flex-col justify-between min-h-[130px] ${cardStyle} ${
+                      isCurrent && !filled ? 'ring-2 ring-[#0E7C7B]/40 ring-offset-2' : ''
+                    }`}
                   >
                     <div className="flex items-center justify-between w-full">
                       <span className="text-sm font-extrabold text-[#123332]">{slot}</span>
                       {filled ? (
-                        <CheckCircle2 className="w-4 h-4 text-[#0E7C7B]" />
+                        slotEvaluation.isOffTarget ? (
+                          <AlertTriangle
+                            className={`w-4 h-4 ${
+                              slotEvaluation.level === 'alert' ? 'text-[#D64545]' : 'text-[#D97706]'
+                            }`}
+                          />
+                        ) : (
+                          <CheckCircle2 className="w-4 h-4 text-[#0E7C7B]" />
+                        )
                       ) : (
                         <Clock className="w-3.5 h-3.5 text-[#5C7472]/60" />
                       )}
@@ -427,12 +466,24 @@ const Index: React.FC = () => {
                       {filled && rec ? (
                         <>
                           {rec.systolic && rec.diastolic ? (
-                            <div className="text-xs font-mono font-bold text-[#123332]">
+                            <div
+                              className={`text-xs font-mono font-bold ${
+                                rec.systolic >= 140 || rec.diastolic >= 90
+                                  ? 'text-[#D64545]'
+                                  : 'text-[#123332]'
+                              }`}
+                            >
                               PA {rec.systolic}/{rec.diastolic}
                             </div>
                           ) : null}
                           {rec.glucose ? (
-                            <div className="text-[11px] text-[#5C7472]">
+                            <div
+                              className={`text-[11px] ${
+                                rec.glucose > 180 || rec.glucose < 70
+                                  ? 'text-[#D97706] font-bold'
+                                  : 'text-[#5C7472]'
+                              }`}
+                            >
                               Glic: <span className="font-semibold">{rec.glucose}</span>
                             </div>
                           ) : null}
@@ -441,6 +492,18 @@ const Index: React.FC = () => {
                               +{rec.water_ml} ml
                             </div>
                           ) : null}
+
+                          {slotEvaluation.isOffTarget && (
+                            <div
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md leading-tight mt-1 ${
+                                slotEvaluation.level === 'alert'
+                                  ? 'bg-[#FDEEEE] text-[#992626]'
+                                  : 'bg-[#FEF3C7] text-[#92400E]'
+                              }`}
+                            >
+                              {slotEvaluation.message}
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div className="text-xs text-[#5C7472]">Pendente</div>
@@ -519,9 +582,16 @@ const Index: React.FC = () => {
             </div>
           </section>
 
-          {/* Diurese & Temperatura Mini-Cards */}
+          {/* Diurese & Temperatura Mini-Cards com Destaque de Metas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-white rounded-3xl p-5 border border-[#E3EFED] shadow-card flex items-center justify-between">
+            {/* Diurese Card */}
+            <div
+              className={`rounded-3xl p-5 border shadow-card flex items-center justify-between ${
+                urineEvaluation.isDrop
+                  ? 'bg-[#FFFBEB] border-2 border-[#D97706]'
+                  : 'bg-white border-[#E3EFED]'
+              }`}
+            >
               <div>
                 <span className="text-xs uppercase font-extrabold tracking-wider text-[#5C7472]">
                   Diurese Hoje
@@ -530,16 +600,40 @@ const Index: React.FC = () => {
                   {totalUrineToday.toLocaleString('pt-BR')}{' '}
                   <span className="text-sm font-normal text-[#5C7472]">ml</span>
                 </div>
-                <span className="text-xs text-[#2E9E6B] font-semibold">
-                  Fluxo urinário adequado
-                </span>
+                {urineEvaluation.isDrop ? (
+                  <span className="text-xs text-[#B45309] font-bold block mt-0.5">
+                    Fora da meta combinada — comunique sua equipe (queda de{' '}
+                    {urineEvaluation.percentDrop}% vs. ontem)
+                  </span>
+                ) : (
+                  <span className="text-xs text-[#2E9E6B] font-semibold">
+                    Fluxo urinário adequado
+                  </span>
+                )}
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-[#EAF7EE] text-[#2E9E6B] flex items-center justify-center">
-                <CheckCircle2 className="w-6 h-6" />
+              <div
+                className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                  urineEvaluation.isDrop
+                    ? 'bg-[#FEF3C7] text-[#D97706]'
+                    : 'bg-[#EAF7EE] text-[#2E9E6B]'
+                }`}
+              >
+                {urineEvaluation.isDrop ? (
+                  <AlertTriangle className="w-6 h-6" />
+                ) : (
+                  <CheckCircle2 className="w-6 h-6" />
+                )}
               </div>
             </div>
 
-            <div className="bg-white rounded-3xl p-5 border border-[#E3EFED] shadow-card flex items-center justify-between">
+            {/* Temperatura Card */}
+            <div
+              className={`rounded-3xl p-5 border shadow-card flex items-center justify-between ${
+                tempEvaluation.isOffTarget
+                  ? 'bg-[#FFF5F5] border-2 border-[#D64545]'
+                  : 'bg-white border-[#E3EFED]'
+              }`}
+            >
               <div>
                 <span className="text-xs uppercase font-extrabold tracking-wider text-[#5C7472]">
                   Temperatura
@@ -548,22 +642,22 @@ const Index: React.FC = () => {
                   {lastTemperature.toFixed(1)}{' '}
                   <span className="text-sm font-normal text-[#5C7472]">°C</span>
                 </div>
-                <span
-                  className={`text-xs font-semibold ${
-                    lastTemperature >= 37.8 ? 'text-[#D64545]' : 'text-[#2E9E6B]'
-                  }`}
-                >
-                  {lastTemperature >= 37.8 ? 'Febre detectada (Atenção)' : 'Afebril'}
-                </span>
+                {tempEvaluation.isOffTarget ? (
+                  <span className="text-xs text-[#D64545] font-bold block mt-0.5">
+                    Fora da meta combinada — comunique sua equipe (febre ≥ 37,8°C)
+                  </span>
+                ) : (
+                  <span className="text-xs text-[#2E9E6B] font-semibold">Afebril</span>
+                )}
               </div>
               <div
-                className={`w-11 h-11 rounded-2xl flex items-center justify-center ${
-                  lastTemperature >= 37.8
+                className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                  tempEvaluation.isOffTarget
                     ? 'bg-[#FDEEEE] text-[#D64545]'
                     : 'bg-[#EAF7EE] text-[#2E9E6B]'
                 }`}
               >
-                {lastTemperature >= 37.8 ? (
+                {tempEvaluation.isOffTarget ? (
                   <AlertTriangle className="w-6 h-6" />
                 ) : (
                   <Thermometer className="w-6 h-6" />

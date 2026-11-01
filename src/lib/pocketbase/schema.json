@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T07:54:40.222Z",
+  "generatedAt": "2026-11-01T10:25:11.985Z",
   "collections": [
     {
       "name": "users",
@@ -523,6 +523,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "consent_accepted_at",
+          "type": "date",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": []

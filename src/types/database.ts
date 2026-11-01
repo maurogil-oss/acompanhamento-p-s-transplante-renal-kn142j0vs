@@ -110,6 +110,7 @@ export interface SettingsRecord extends RecordModel {
   emergency_contact_1_phone: string
   emergency_contact_2_name: string
   emergency_contact_2_phone: string
+  consent_accepted_at?: string
   created: string
   updated: string
 }

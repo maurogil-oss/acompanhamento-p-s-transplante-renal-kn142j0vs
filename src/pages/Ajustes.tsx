@@ -13,7 +13,19 @@ import {
   Save,
   ShieldCheck,
   HeartPulse,
+  Trash2,
+  Lock,
+  Mail,
+  HelpCircle,
 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 const Ajustes: React.FC = () => {
   const { settings, updateSettings } = useAppSettings()
@@ -28,6 +40,7 @@ const Ajustes: React.FC = () => {
   const [contact2Name, setContact2Name] = useState('')
   const [contact2Phone, setContact2Phone] = useState('')
   const [saving, setSaving] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
 
   useEffect(() => {
     if (settings) {
@@ -274,7 +287,10 @@ const Ajustes: React.FC = () => {
         {/* Data Persistence Note */}
         <div className="p-4 rounded-2xl bg-[#D9F2F1]/50 border border-[#BCE4E2] flex items-center gap-3 text-xs text-[#0A5F5E]">
           <ShieldCheck className="w-5 h-5 shrink-0 text-[#0E7C7B]" />
-          <span>App pessoal — os dados ficam salvos no banco do projeto.</span>
+          <span>
+            App pessoal sob a LGPD (Art. 11) — seus dados ficam armazenados de forma restrita e você
+            tem controle total sobre compartilhamento e eliminação.
+          </span>
         </div>
 
         {/* Save Button */}
@@ -289,6 +305,112 @@ const Ajustes: React.FC = () => {
           </Button>
         </div>
       </form>
+
+      {/* Privacidade e Direitos LGPD - Exclusão de Dados */}
+      <section className="bg-white rounded-3xl p-5 sm:p-6 border border-[#E3EFED] shadow-card space-y-4">
+        <div className="flex items-center gap-2 text-sm font-bold text-[#123332]">
+          <Lock className="w-4 h-4 text-[#0E7C7B]" />
+          <span>Privacidade e Gestão de Dados (LGPD)</span>
+        </div>
+
+        <p className="text-xs text-[#5C7472] leading-relaxed">
+          Como titular dos dados de saúde registrados neste aplicativo, você pode exercer a qualquer
+          momento seu direito de solicitar a eliminação definitiva de todos os registros
+          armazenados.
+        </p>
+
+        <div className="pt-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-[#FFF5F5] border border-[#FAD2D2]">
+          <div className="space-y-0.5">
+            <div className="text-xs font-bold text-[#992626] flex items-center gap-1.5">
+              <Trash2 className="w-3.5 h-3.5 text-[#D64545]" />
+              Exclusão definitiva das informações
+            </div>
+            <div className="text-[11px] text-[#992626]/80">
+              Remove todas as medições, exames, medicamentos e acessos compartilhados.
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setDeleteModalOpen(true)}
+            className="rounded-xl h-9 px-4 text-xs font-bold border-[#FAD2D2] text-[#D64545] hover:bg-[#FDEEEE] bg-white self-stretch sm:self-auto"
+          >
+            Solicitar exclusão dos meus dados
+          </Button>
+        </div>
+      </section>
+
+      {/* Modal explicativo de solicitação de exclusão */}
+      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <DialogContent className="max-w-md rounded-3xl p-6">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-2xl bg-[#FDEEEE] text-[#D64545] flex items-center justify-center mb-2">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-lg font-extrabold text-[#123332]">
+              Solicitar exclusão dos meus dados
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#5C7472] leading-relaxed pt-1">
+              Em conformidade com a Lei Geral de Proteção de Dados (Art. 18, VI da LGPD), você tem o
+              direito de requerer a eliminação completa e irreversível dos dados tratados neste
+              aplicativo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs text-[#5C7472]">
+            <div className="p-3.5 rounded-2xl bg-[#F6FBFA] border border-[#E3EFED] space-y-2">
+              <div className="font-bold text-[#123332] flex items-center gap-1.5">
+                <HelpCircle className="w-4 h-4 text-[#0E7C7B]" />
+                Como funciona o processo de exclusão:
+              </div>
+              <ul className="space-y-1.5 list-disc list-inside text-[11px] leading-relaxed">
+                <li>
+                  Você pode primeiro <strong>revogar todos os compartilhamentos ativos</strong>{' '}
+                  imediatamente na página <strong>Compartilhamento</strong>.
+                </li>
+                <li>
+                  Para a exclusão completa do banco de dados do seu paciente, entre em contato com o
+                  canal de privacidade do projeto:
+                </li>
+              </ul>
+              <div className="p-2.5 rounded-xl bg-white border border-[#E3EFED] flex items-center gap-2 font-mono text-[11px] text-[#0E7C7B]">
+                <Mail className="w-4 h-4 shrink-0" />
+                <span className="font-bold">privacidade@postransplante.app.br</span>
+              </div>
+              <p className="text-[11px] text-[#5C7472]">
+                Informando o nome do paciente (
+                <strong>{settings?.patient_name || 'Paciente'}</strong>). A exclusão dos registros
+                no banco é processada em até 5 dias úteis.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-2 flex flex-col sm:flex-row gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteModalOpen(false)}
+              className="rounded-xl h-10 w-full sm:w-auto text-xs font-bold"
+            >
+              Fechar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                toast({
+                  title: 'Orientações enviadas',
+                  description: 'Siga os passos acima ou utilize o canal de privacidade indicado.',
+                })
+                setDeleteModalOpen(false)
+              }}
+              className="rounded-xl h-10 w-full sm:w-auto bg-[#0E7C7B] hover:bg-[#0A5F5E] text-white text-xs font-bold"
+            >
+              Entendido
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -10,6 +10,7 @@ interface SettingsContextType {
   updateSettings: (data: Partial<SettingsRecord>) => Promise<SettingsRecord | null>
   emergencyModalOpen: boolean
   setEmergencyModalOpen: (open: boolean) => void
+  acceptConsent: () => Promise<boolean>
 }
 
 const SettingsContext = createContext<SettingsContextType>({
@@ -19,6 +20,7 @@ const SettingsContext = createContext<SettingsContextType>({
   updateSettings: async () => null,
   emergencyModalOpen: false,
   setEmergencyModalOpen: () => {},
+  acceptConsent: async () => false,
 })
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -52,6 +54,23 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return updated
   }
 
+  const acceptConsent = async () => {
+    try {
+      const nowIso = new Date().toISOString()
+      localStorage.setItem('pos_transplante_consent_accepted_at', nowIso)
+      if (settings?.id) {
+        const updated = await settingsService.updateSettings(settings.id, {
+          consent_accepted_at: nowIso,
+        })
+        setSettings(updated)
+      }
+      return true
+    } catch (e) {
+      console.error('Erro ao registrar aceite de consentimento:', e)
+      return false
+    }
+  }
+
   return (
     <SettingsContext.Provider
       value={{
@@ -61,6 +80,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateSettings,
         emergencyModalOpen,
         setEmergencyModalOpen,
+        acceptConsent,
       }}
     >
       {children}

@@ -10,6 +10,8 @@ import {
   Settings,
   PhoneCall,
   HeartPulse,
+  Sparkles,
+  BookOpen,
 } from 'lucide-react'
 import { AlertBand } from './AlertBand'
 import { EmergencyModal } from './EmergencyModal'
@@ -17,6 +19,8 @@ import { useAppSettings } from '@/contexts/SettingsContext'
 
 const NAV_ITEMS = [
   { path: '/', label: 'Painel', icon: LayoutDashboard },
+  { path: '/sobre', label: 'Sobre o Modelo', icon: Sparkles },
+  { path: '/cuidados', label: 'Cuidados', icon: BookOpen },
   { path: '/medicoes', label: 'Medições', icon: Activity },
   { path: '/medicamentos', label: 'Medicamentos', icon: Pill },
   { path: '/compartilhamento', label: 'Compartilhamento', icon: Share2 },
