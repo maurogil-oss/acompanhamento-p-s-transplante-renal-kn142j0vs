@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from '@/hooks/use-toast'
 import { measurementsService } from '@/services/measurements'
 import type { MeasurementRecord, MeasurementSlot } from '@/types/database'
-import { Activity, Clock, Droplets, Thermometer, Weight, FileText } from 'lucide-react'
+import { Activity, Clock, Droplets, Thermometer, Weight, FileText, Trash2 } from 'lucide-react'
 
 interface MeasurementModalProps {
   open: boolean
@@ -36,7 +36,37 @@ export const MeasurementModal: React.FC<MeasurementModalProps> = ({
   const [weightKg, setWeightKg] = useState<string>('')
   const [notes, setNotes] = useState<string>('')
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const handleDelete = async () => {
+    if (!existingRecord?.id) return
+    if (
+      !window.confirm(`Tem certeza que deseja apagar as medições do horário ${slot} deste dia?`)
+    ) {
+      return
+    }
+
+    setDeleting(true)
+    try {
+      await measurementsService.delete(existingRecord.id)
+      toast({
+        title: 'Medição apagada',
+        description: `Dados do horário ${slot} foram removidos.`,
+      })
+      onSaved()
+      onOpenChange(false)
+    } catch (err) {
+      console.error(err)
+      toast({
+        title: 'Erro ao apagar',
+        description: 'Não foi possível excluir a medição.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   useEffect(() => {
     if (open) {
@@ -354,22 +384,39 @@ export const MeasurementModal: React.FC<MeasurementModalProps> = ({
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="rounded-xl h-10 px-4"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={saving}
-              className="rounded-xl h-10 px-6 bg-[#0E7C7B] hover:bg-[#0A5F5E] text-white font-bold"
-            >
-              {saving ? 'Salvando...' : 'Salvar medição'}
-            </Button>
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#E3EFED]/60">
+            <div>
+              {existingRecord?.id && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={deleting || saving}
+                  onClick={handleDelete}
+                  className="rounded-xl h-10 px-3 text-xs text-[#D64545] hover:bg-[#FDEEEE] hover:text-[#991B1B]"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                  Apagar lançamento
+                </Button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                className="rounded-xl h-10 px-4 text-xs font-semibold"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving || deleting}
+                className="rounded-xl h-10 px-6 bg-[#0E7C7B] hover:bg-[#0A5F5E] text-white font-bold text-xs"
+              >
+                {saving ? 'Salvando...' : 'Salvar medição'}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>

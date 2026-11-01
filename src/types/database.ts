@@ -19,12 +19,37 @@ export interface MeasurementRecord extends RecordModel {
   updated: string
 }
 
+export interface MedicationPhase {
+  start_date: string // YYYY-MM-DD
+  end_date?: string // YYYY-MM-DD (empty = continuous)
+  dose: string
+  details?: string
+}
+
 export interface MedicationRecord extends RecordModel {
   id: string
   name: string
   dose: string
-  times: string[] | string // ["07:00", "19:00"]
+  unit?: string
+  times: string[] | string // ["08:00", "20:00"]
+  start_date?: string
+  end_date?: string
   active: boolean
+  phases?: MedicationPhase[] | string
+  instructions?: string
+  created: string
+  updated: string
+}
+
+export type SharedAccessRole = 'medico' | 'familiar' | 'outro'
+
+export interface SharedAccessRecord extends RecordModel {
+  id: string
+  name: string
+  role: SharedAccessRole
+  code: string
+  active: boolean
+  notes?: string
   created: string
   updated: string
 }

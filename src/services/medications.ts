@@ -1,21 +1,97 @@
 import pb from '@/lib/pocketbase/client'
 import type { MedicationRecord, MedicationLogRecord } from '@/types/database'
 
+function normalizeMedication(m: MedicationRecord): MedicationRecord {
+  let times: string[] = []
+  if (Array.isArray(m.times)) {
+    times = m.times
+  } else if (typeof m.times === 'string') {
+    try {
+      times = JSON.parse(m.times)
+    } catch {
+      times = [m.times]
+    }
+  }
+
+  let phases: any = undefined
+  if (m.phases) {
+    if (typeof m.phases === 'string') {
+      try {
+        phases = JSON.parse(m.phases)
+      } catch {
+        phases = []
+      }
+    } else {
+      phases = m.phases
+    }
+  }
+
+  return {
+    ...m,
+    times,
+    phases,
+  }
+}
+
 export const medicationsService = {
+  async getAll(): Promise<MedicationRecord[]> {
+    try {
+      const records = await pb.collection('medications').getFullList<MedicationRecord>({
+        sort: 'name',
+      })
+      return records.map(normalizeMedication)
+    } catch (err) {
+      console.error('Error fetching all medications:', err)
+      return []
+    }
+  },
+
   async getActiveMedications(): Promise<MedicationRecord[]> {
     try {
       const records = await pb.collection('medications').getFullList<MedicationRecord>({
         filter: 'active = true',
-        sort: 'created',
+        sort: 'name',
       })
-      return records.map((m) => ({
-        ...m,
-        times: typeof m.times === 'string' ? JSON.parse(m.times) : m.times,
-      }))
+      return records.map(normalizeMedication)
     } catch (err) {
       console.error('Error fetching medications:', err)
       return []
     }
+  },
+
+  async create(data: Partial<MedicationRecord>): Promise<MedicationRecord> {
+    const payload = {
+      ...data,
+      times: Array.isArray(data.times) ? JSON.stringify(data.times) : data.times,
+      phases: data.phases
+        ? typeof data.phases === 'string'
+          ? data.phases
+          : JSON.stringify(data.phases)
+        : null,
+    }
+    const rec = await pb.collection('medications').create<MedicationRecord>(payload)
+    return normalizeMedication(rec)
+  },
+
+  async update(id: string, data: Partial<MedicationRecord>): Promise<MedicationRecord> {
+    const payload: any = { ...data }
+    if (data.times !== undefined) {
+      payload.times = Array.isArray(data.times) ? JSON.stringify(data.times) : data.times
+    }
+    if (data.phases !== undefined) {
+      payload.phases = data.phases
+        ? typeof data.phases === 'string'
+          ? data.phases
+          : JSON.stringify(data.phases)
+        : null
+    }
+    const rec = await pb.collection('medications').update<MedicationRecord>(id, payload)
+    return normalizeMedication(rec)
+  },
+
+  async delete(id: string): Promise<boolean> {
+    await pb.collection('medications').delete(id)
+    return true
   },
 
   async getLogsByDate(dateStr: string): Promise<MedicationLogRecord[]> {

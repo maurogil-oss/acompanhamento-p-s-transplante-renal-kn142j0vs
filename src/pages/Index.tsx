@@ -229,30 +229,69 @@ const Index: React.FC = () => {
     return withTemp?.temperature || 36.5
   }, [measurements])
 
-  // Medication routine tracking
+  // Helper to compute dose of the day for a medication (taking phases into account)
+  const getDoseForToday = (med: MedicationRecord): string => {
+    if (!med.phases) return med.dose
+    const phasesList: any[] = Array.isArray(med.phases)
+      ? med.phases
+      : typeof med.phases === 'string'
+        ? JSON.parse(med.phases)
+        : []
+    if (phasesList.length === 0) return med.dose
+    for (let i = 0; i < phasesList.length; i++) {
+      const p = phasesList[i]
+      if ((!p.start_date || todayStr >= p.start_date) && (!p.end_date || todayStr <= p.end_date)) {
+        return p.dose
+      }
+    }
+    return phasesList[phasesList.length - 1]?.dose || med.dose
+  }
+
+  // Medication routine tracking - considering ALL active medications for today
   const medRoutine = useMemo(() => {
     const list: Array<{
       medication: MedicationRecord
       time: string
+      effectiveDose: string
       taken: boolean
       takenAt?: string
     }> = []
 
     medications.forEach((med) => {
-      const times = Array.isArray(med.times) ? med.times : ['07:00', '19:00']
-      times.forEach((time) => {
+      // Check if medication is active and within valid date range today
+      if (!med.active) return
+      if (med.start_date && todayStr < med.start_date.split('T')[0]) return
+      if (med.end_date && todayStr > med.end_date.split('T')[0]) return
+
+      const times = Array.isArray(med.times)
+        ? med.times
+        : typeof med.times === 'string'
+          ? JSON.parse(med.times)
+          : ['08:00']
+
+      const effectiveDose = getDoseForToday(med)
+
+      times.forEach((time: string) => {
         const log = medicationLogs.find((l) => l.medication === med.id && l.time === time)
         list.push({
           medication: med,
           time,
+          effectiveDose,
           taken: Boolean(log?.taken),
           takenAt: log?.taken_at,
         })
       })
     })
 
+    // Sort routine by time ascending, then by name
+    list.sort((a, b) => {
+      const timeComp = a.time.localeCompare(b.time)
+      if (timeComp !== 0) return timeComp
+      return a.medication.name.localeCompare(b.medication.name)
+    })
+
     return list
-  }, [medications, medicationLogs])
+  }, [medications, medicationLogs, todayStr])
 
   const dosesTakenCount = useMemo(() => {
     return medRoutine.filter((m) => m.taken).length
@@ -573,51 +612,58 @@ const Index: React.FC = () => {
 
         {/* Right Column (38% ~ 5 cols or 4 cols) */}
         <div className="lg:col-span-5 xl:col-span-4 space-y-6">
-          {/* Immunosuppressant Routine */}
+          {/* Medications Routine of the Day */}
           <section className="bg-white rounded-3xl p-5 sm:p-6 border border-[#E3EFED] shadow-card">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-base font-bold text-[#123332] flex items-center gap-2">
                   <Pill className="w-4 h-4 text-[#0E7C7B]" />
-                  Rotina de Imunossupressores
+                  Medicamentos do Dia
                 </h2>
                 <p className="text-xs text-[#5C7472]">
-                  {dosesTakenCount} de {totalDosesCount} doses hoje
+                  {dosesTakenCount} de {totalDosesCount} tomados hoje
                 </p>
               </div>
+              <Link
+                to="/medicamentos"
+                className="text-xs font-bold text-[#0E7C7B] hover:underline flex items-center gap-1"
+              >
+                Gerenciar
+                <ChevronRight className="w-3 h-3" />
+              </Link>
             </div>
 
-            <div className="space-y-3">
-              {medRoutine.map((item, idx) => {
+            <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
+              {medRoutine.map((item) => {
                 const key = `${item.medication.id}-${item.time}`
                 return (
                   <div
                     key={key}
-                    className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between ${
+                    className={`p-3 rounded-2xl border transition-all flex items-center justify-between ${
                       item.taken
-                        ? 'bg-[#F6FBFA] border-[#E3EFED] opacity-80'
+                        ? 'bg-[#F6FBFA] border-[#E3EFED] opacity-75'
                         : 'bg-white border-[#0E7C7B]/30 shadow-sm'
                     }`}
                   >
-                    <div>
+                    <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
                         <span
-                          className={`text-sm font-bold ${
+                          className={`text-xs sm:text-sm font-bold ${
                             item.taken ? 'line-through text-[#5C7472]' : 'text-[#123332]'
                           }`}
                         >
                           {item.medication.name}
                         </span>
-                        <span className="text-xs px-2 py-0.5 rounded-md bg-[#F6FBFA] text-[#5C7472] font-semibold border border-[#E3EFED]">
-                          {item.medication.dose}
+                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-[#D9F2F1] text-[#0A5F5E] font-semibold">
+                          {item.effectiveDose}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2">
                         <span className="text-xs font-mono font-bold text-[#0E7C7B]">
                           {item.time}
                         </span>
                         {!item.taken && (
-                          <span className="w-2 h-2 rounded-full bg-[#0E7C7B] animate-pulse-soft" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#0E7C7B] animate-pulse-soft" />
                         )}
                         {item.taken && item.takenAt && (
                           <span className="text-[10px] text-[#5C7472]">
@@ -636,18 +682,24 @@ const Index: React.FC = () => {
                       onClick={() =>
                         handleToggleMedication(item.medication.id, item.time, item.taken)
                       }
-                      className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
                         item.taken
                           ? 'bg-[#0E7C7B] text-white animate-check-pop'
                           : 'border-2 border-[#0E7C7B] text-transparent hover:bg-[#D9F2F1]'
                       }`}
                       title={item.taken ? 'Desmarcar dose' : 'Marcar como tomado'}
                     >
-                      <CheckCircle2 className="w-5 h-5" />
+                      <CheckCircle2 className="w-4 h-4" />
                     </button>
                   </div>
                 )
               })}
+
+              {medRoutine.length === 0 && (
+                <p className="text-xs text-[#5C7472] text-center py-4">
+                  Nenhum medicamento programado para hoje.
+                </p>
+              )}
             </div>
           </section>
 

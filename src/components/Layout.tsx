@@ -3,6 +3,8 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   Activity,
+  Pill,
+  Share2,
   FileText,
   Calendar,
   Settings,
@@ -16,6 +18,8 @@ import { useAppSettings } from '@/contexts/SettingsContext'
 const NAV_ITEMS = [
   { path: '/', label: 'Painel', icon: LayoutDashboard },
   { path: '/medicoes', label: 'Medições', icon: Activity },
+  { path: '/medicamentos', label: 'Medicamentos', icon: Pill },
+  { path: '/compartilhamento', label: 'Compartilhamento', icon: Share2 },
   { path: '/exames', label: 'Exames', icon: FileText },
   { path: '/consultas', label: 'Consultas', icon: Calendar },
   { path: '/ajustes', label: 'Ajustes', icon: Settings },

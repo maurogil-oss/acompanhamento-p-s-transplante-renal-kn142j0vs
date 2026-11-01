@@ -58,4 +58,9 @@ export const measurementsService = {
   async update(id: string, data: Partial<MeasurementRecord>): Promise<MeasurementRecord> {
     return await pb.collection('measurements').update<MeasurementRecord>(id, data)
   },
+
+  async delete(id: string): Promise<boolean> {
+    await pb.collection('measurements').delete(id)
+    return true
+  },
 }
