@@ -1,0 +1,501 @@
+{
+  "generatedAt": "2026-11-01T01:47:29.900Z",
+  "collections": [
+    {
+      "name": "users",
+      "type": "auth",
+      "apiRules": {
+        "list": "id = @request.auth.id",
+        "view": "id = @request.auth.id",
+        "create": "",
+        "update": "id = @request.auth.id",
+        "delete": "id = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "avatar",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_tokenKey__pb_users_auth_` ON `users` (`tokenKey`)",
+        "CREATE UNIQUE INDEX `idx_email__pb_users_auth_` ON `users` (`email`) WHERE `email` != ''"
+      ]
+    },
+    {
+      "name": "measurements",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "slot",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["07:00", "12:00", "18:00", "23:00"]
+        },
+        {
+          "name": "systolic",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "diastolic",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "glucose",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "heart_rate",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "water_ml",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "temperature",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "urine_ml",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "weight_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_measurements_date_slot ON measurements (date, slot)",
+        "CREATE INDEX idx_measurements_date ON measurements (date)"
+      ]
+    },
+    {
+      "name": "medications",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dose",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "times",
+          "type": "json",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "medication_logs",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "medication",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "medications"
+        },
+        {
+          "name": "time",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "taken",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "taken_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_med_logs_date_med_time ON medication_logs (date, medication, time)",
+        "CREATE INDEX idx_med_logs_date ON medication_logs (date)"
+      ]
+    },
+    {
+      "name": "labs",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "exam_date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "creatinine",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "urea",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "potassium",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sodium",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "hemoglobin",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "gfr",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_labs_exam_date ON labs (exam_date)"]
+    },
+    {
+      "name": "appointments",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "time",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "doctor",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "location",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["consulta", "exame"]
+        },
+        {
+          "name": "fasting_required",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "done",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_appointments_date ON appointments (date)"]
+    },
+    {
+      "name": "settings",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "patient_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "transplant_date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "discharge_date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "baseline_weight_kg",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "daily_water_goal_ml",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "emergency_contact_1_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "emergency_contact_1_phone",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "emergency_contact_2_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "emergency_contact_2_phone",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    }
+  ]
+}
